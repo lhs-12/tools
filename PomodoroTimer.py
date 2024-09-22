@@ -1,6 +1,7 @@
 import tkinter as tk  # 显示界面
 from tkinter import messagebox  # 显示消息框
 import winsound  # Windows播放声音
+import win32gui  # Windows GUI
 import time  # 处理时间
 import re  # 正则表达式
 import ctypes  # C语言扩展
@@ -29,14 +30,6 @@ class PomodoroTimer:
         self.is_running = False  # 是否计时中
         self.remaining_time = 0  # 计时剩余时间(秒)
         self.end_time = 0  # 计时结束时间
-
-    def update_work_time_label(self, *args):
-        """更新工作时间标签"""
-        self._update_time_label(self.work_time, self.work_time_label)
-
-    def update_rest_time_label(self, *args):
-        """更新休息时间标签"""
-        self._update_time_label(self.rest_time, self.rest_time_label)
 
     def _update_time_label(self, time_var, label):
         """更新时间标签"""
@@ -72,8 +65,6 @@ class PomodoroTimer:
 
     def _timer_finished(self):
         """计时器结束逻辑"""
-        winsound.Beep(1000, 1000)
-        # winsound.PlaySound("ring.wav", winsound.SND_ASYNC)
         if self.clock_state == 1:
             msg = "工作计时结束"
             self.clock_state = 2
@@ -90,8 +81,8 @@ class PomodoroTimer:
             self.is_running = False
             self.work_entry.config(state=tk.NORMAL)
             self.rest_entry.config(state=tk.NORMAL)
-            self.update_work_time_label()
-            self.update_rest_time_label()
+            self._update_time_label(self.work_time, self.work_time_label)
+            self._update_time_label(self.rest_time, self.rest_time_label)
         elif self.clock_state == 2:
             self.start_button.pack_forget()
             self.pause_button.pack_forget()
@@ -107,7 +98,6 @@ class PomodoroTimer:
         top.geometry("250x100")
         top.resizable(False, False)  # 禁止调整弹窗大小
         top.protocol("WM_DELETE_WINDOW", lambda: None)  # 禁用关闭按钮
-        top.attributes("-topmost", True)  # 设置弹窗总是显示在最前面
         label = tk.Label(top, text=message, font=(font, 12), bg=bg_color, fg=fg_color)  # 创建显示消息的标签
         label.pack(expand=True)
         # 创建确认按钮
@@ -116,7 +106,16 @@ class PomodoroTimer:
         top.grab_set()  # 设置模态窗口, 弹窗弹出时, 禁止对主窗口进行其他操作
         self._center_window(top)  # 弹窗居中显示
         self._set_dark_title_bar(top)  # 设置弹窗黑色标题栏
+        self._popup_schedule_reminder(top)  # 弹窗定时提醒
         self.root.wait_window(top)  # 等待弹窗关闭后再继续执行
+
+    def _popup_schedule_reminder(self, window):
+        """弹窗更新提醒"""
+        if window.winfo_exists():
+            winsound.PlaySound("ring.wav", winsound.SND_ASYNC)
+            hwnd = win32gui.GetParent(window.winfo_id())
+            win32gui.FlashWindow(hwnd, True)
+            window.after(5 * 60 * 1000, lambda: self._popup_schedule_reminder(window))
 
     def start_timer(self):
         try:
@@ -156,8 +155,8 @@ class PomodoroTimer:
         self.is_running = False
         self.clock_state = 1
         self.remaining_time = 0
-        self.update_work_time_label()
-        self.update_rest_time_label()
+        self._update_time_label(self.work_time, self.work_time_label)
+        self._update_time_label(self.rest_time, self.rest_time_label)
         self.work_entry.config(state=tk.NORMAL)
         self.rest_entry.config(state=tk.NORMAL)
         self.pause_button.pack_forget()
@@ -239,7 +238,7 @@ class PomodoroTimer:
 
         # "工作时间"输入框架
         self.work_time = tk.StringVar(value="25")
-        self.work_time.trace_add("write", self.update_work_time_label)
+        self.work_time.trace_add("write", lambda a, b, c: self._update_time_label(self.work_time, self.work_time_label))
         work_input_frame = tk.Frame(input_frame, bg=bg_color)
         work_input_frame.pack(side=tk.LEFT, padx=(0, 10), pady=(0, 0))
         tk.Label(work_input_frame, text="工作:", font=(font, font_size), bg=bg_color, fg=fg_color).pack(side=tk.LEFT)
@@ -258,7 +257,7 @@ class PomodoroTimer:
 
         # "休息时间"输入框架
         self.rest_time = tk.StringVar(value="5")  # 休息时间
-        self.rest_time.trace_add("write", self.update_rest_time_label)
+        self.rest_time.trace_add("write", lambda a, b, c: self._update_time_label(self.rest_time, self.rest_time_label))
         rest_input_frame = tk.Frame(input_frame, bg=bg_color)
         rest_input_frame.pack(side=tk.LEFT, padx=(10, 0))
         tk.Label(rest_input_frame, text="休息:", font=(font, font_size), bg=bg_color, fg=fg_color).pack(side=tk.LEFT)
@@ -287,6 +286,8 @@ class PomodoroTimer:
         self.root.attributes("-topmost", True)  # 窗口最前
         self._bottom_right_window(self.root)  # 窗口放置右下角
         self._set_dark_title_bar(self.root)  # 黑色标题栏
+        self.root.bind("<FocusIn>", lambda x: self.root.attributes("-alpha", 1.0))  # 获取焦点时不透明
+        self.root.bind("<FocusOut>", lambda x: self.root.attributes("-alpha", 0.5))  # 失去焦点时半透明
 
     def _set_dark_title_bar(self, window) -> None:
         """设置黑色窗口标题栏"""
