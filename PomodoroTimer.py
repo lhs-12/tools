@@ -1,7 +1,5 @@
 import tkinter as tk  # 显示界面
 from tkinter import messagebox  # 显示消息框
-import ttkbootstrap as ttk  # ttk美化主题
-from ttkbootstrap.constants import *  # ttk变量
 import winsound  # Windows播放声音
 import time  # 处理时间
 import re  # 正则表达式
@@ -13,13 +11,17 @@ from win32api import GetMonitorInfo, MonitorFromPoint
 # pyinstaller PomodoroTimer.spec
 
 font = "微软雅黑"
+bg_color = "#1b1b1b"
+fg_color = "#fdf6e3"
+button1_color = "#09b286"
+button2_color = "#a7afb6"
+
 input_regex = r"^(([0]|[1-9]\d{0,2})((\.\d{0,2})?))?$"
 
 
 class PomodoroTimer:
-    def __init__(self, root: ttk.Window):
+    def __init__(self, root: tk.Tk):
         self.root = root  # 源窗口
-        self._config_ttk_style()  # 配置ttk样式
         self._config_root_window()  # 配置源窗口参数
         self._create_widgets()  # 配置GUI组件
 
@@ -80,7 +82,7 @@ class PomodoroTimer:
             msg = "休息计时结束"
             self.clock_state = 1
             self.remaining_time = 0
-        self._popup_message("够钟", msg)
+        self._popup_message("提示", msg)
 
         if self.clock_state == 1:
             self.reset_button.pack_forget()
@@ -100,15 +102,16 @@ class PomodoroTimer:
 
     def _popup_message(self, title, message) -> None:
         """弹窗消息"""
-        top = tk.Toplevel(self.root)  # 创建一个顶层窗口作为弹窗
+        top = tk.Toplevel(self.root, bg=bg_color)  # 创建一个顶层窗口作为弹窗
         top.title(title)
         top.geometry("250x100")
         top.resizable(False, False)  # 禁止调整弹窗大小
         top.protocol("WM_DELETE_WINDOW", lambda: None)  # 禁用关闭按钮
         top.attributes("-topmost", True)  # 设置弹窗总是显示在最前面
-        label = tk.Label(top, text=message, font=(font, 12))  # 创建显示消息的标签
+        label = tk.Label(top, text=message, font=(font, 12), bg=bg_color, fg=fg_color)  # 创建显示消息的标签
         label.pack(expand=True)
-        ok_button = tk.Button(top, text="确认", command=top.destroy, font=(font, 10))  # 创建确认按钮
+        # 创建确认按钮
+        ok_button = tk.Button(top, text="确认", command=top.destroy, font=(font, 10), bg=bg_color, fg=fg_color)
         ok_button.pack(pady=10)
         top.grab_set()  # 设置模态窗口, 弹窗弹出时, 禁止对主窗口进行其他操作
         self._center_window(top)  # 弹窗居中显示
@@ -164,7 +167,7 @@ class PomodoroTimer:
     def _create_widgets(self) -> None:
         """创建并布局GUI组件"""
         # 主框架
-        main_frame = ttk.Frame(self.root)
+        main_frame = tk.Frame(self.root, bg=bg_color)
         main_frame.pack(expand=True, fill=tk.BOTH)
         # 配置输入框架
         self._create_input_frame(main_frame)
@@ -174,82 +177,101 @@ class PomodoroTimer:
         self._create_button_frame(main_frame)
 
     def _create_button_frame(self, main_frame) -> None:
-        font_size = 12
-        button_frame = ttk.Frame(main_frame)
+        font_size = 10
+        button_frame = tk.Frame(main_frame, bg=bg_color)
         button_frame.pack(pady=(0, 2))  # pady: 组件垂直间距, 第一个值为上间距, 第二个值为下间距
 
-        self.start_button = ttk.Button(
+        self.start_button = tk.Button(
             button_frame,
             text="开始",
             command=self.start_timer,
-            style="success-outline.TButton",
+            font=(font, font_size),
+            bg=bg_color,
+            fg=button1_color,
+            activebackground=button1_color,
+            activeforeground=fg_color,
+            relief=tk.RIDGE,
         )
         self.start_button.pack(side=tk.LEFT, padx=10)  # padx: 组件水平间距
 
-        self.pause_button = ttk.Button(
+        self.pause_button = tk.Button(
             button_frame,
             text="暂停",
             command=self.pause_timer,
             state=tk.DISABLED,
-            style="light-outline.TButton",
+            font=(font, font_size),
+            bg=bg_color,
+            fg=button2_color,
+            activebackground=button2_color,
+            activeforeground=fg_color,
+            relief=tk.RIDGE,
         )
         self.pause_button.pack(side=tk.LEFT, padx=10)
 
-        self.reset_button = ttk.Button(
+        self.reset_button = tk.Button(
             button_frame,
             text="重置",
             command=self.reset_timer,
-            style="light-outline.TButton",
+            font=(font, font_size),
+            bg=bg_color,
+            fg=button2_color,
+            activebackground=button2_color,
+            activeforeground=fg_color,
+            relief=tk.RIDGE,
         )
 
     def _create_timer_frame(self, main_frame) -> None:
-        timer_frame = ttk.Frame(main_frame)
+        timer_frame = tk.Frame(main_frame, bg=bg_color)
         timer_frame.pack(pady=(0, 0))
         font_size = 24
-        self.work_time_label = ttk.Label(timer_frame, text="25:00", font=(font, font_size))
+        self.work_time_label = tk.Label(timer_frame, text="25:00", font=(font, font_size), bg=bg_color, fg=fg_color)
         self.work_time_label.pack(side=tk.LEFT, padx=(0, 20))  # padx第一个值为左间距, 第二个值为右间距
-        self.rest_time_label = ttk.Label(timer_frame, text="05:00", font=(font, font_size))
+        self.rest_time_label = tk.Label(timer_frame, text="05:00", font=(font, font_size), bg=bg_color, fg=fg_color)
         self.rest_time_label.pack(side=tk.LEFT, padx=(20, 0))
 
     def _create_input_frame(self, main_frame) -> None:
         font_size = 12
         # 输入区域框架
-        input_frame = ttk.Frame(main_frame)
+        input_frame = tk.Frame(main_frame, bg=bg_color)
         input_frame.pack(pady=(5, 0))
         # 输入内容验证命令
         vcmd = (self.root.register(self.validate_input), "%P")
 
         # "工作时间"输入框架
-        self.work_time = ttk.StringVar(value="25")
+        self.work_time = tk.StringVar(value="25")
         self.work_time.trace_add("write", self.update_work_time_label)
-        work_input_frame = ttk.Frame(input_frame)
+        work_input_frame = tk.Frame(input_frame, bg=bg_color)
         work_input_frame.pack(side=tk.LEFT, padx=(0, 10), pady=(0, 0))
-        ttk.Label(work_input_frame, text="工作:", font=(font, font_size)).pack(side=tk.LEFT)
-        self.work_entry = ttk.Entry(
+        tk.Label(work_input_frame, text="工作:", font=(font, font_size), bg=bg_color, fg=fg_color).pack(side=tk.LEFT)
+        self.work_entry = tk.Entry(
             work_input_frame,
             textvariable=self.work_time,
             width=6,
             font=(font, font_size),
             validate="key",
             validatecommand=vcmd,
-            style="Custom_1.TEntry",
+            bg=bg_color,
+            fg=fg_color,
+            disabledbackground=bg_color,
         )
         self.work_entry.pack(side=tk.LEFT)
 
         # "休息时间"输入框架
-        self.rest_time = ttk.StringVar(value="5")  # 休息时间
+        self.rest_time = tk.StringVar(value="5")  # 休息时间
         self.rest_time.trace_add("write", self.update_rest_time_label)
-        rest_input_frame = ttk.Frame(input_frame)
+        rest_input_frame = tk.Frame(input_frame, bg=bg_color)
         rest_input_frame.pack(side=tk.LEFT, padx=(10, 0))
-        ttk.Label(rest_input_frame, text="休息:", font=(font, font_size)).pack(side=tk.LEFT)
-        self.rest_entry = ttk.Entry(
+        tk.Label(rest_input_frame, text="休息:", font=(font, font_size), bg=bg_color, fg=fg_color).pack(side=tk.LEFT)
+        self.rest_entry = tk.Entry(
             rest_input_frame,
             textvariable=self.rest_time,
             width=6,
             font=(font, font_size),
             validate="key",
             validatecommand=vcmd,
-            style="Custom_1.TEntry",
+            bg=bg_color,
+            fg=fg_color,
+            disabledbackground=bg_color,
         )
         self.rest_entry.pack(side=tk.LEFT)
 
@@ -265,11 +287,6 @@ class PomodoroTimer:
         self.root.attributes("-topmost", True)  # 窗口最前
         self._bottom_right_window(self.root)  # 窗口放置右下角
         self._set_dark_title_bar(self.root)  # 黑色标题栏
-
-    def _config_ttk_style(self) -> None:
-        """配置ttk样式"""
-        ttk_style = ttk.Style()
-        ttk_style.configure("Custom_1.TEntry", padding=(5, 0))
 
     def _set_dark_title_bar(self, window) -> None:
         """设置黑色窗口标题栏"""
@@ -301,6 +318,6 @@ class PomodoroTimer:
 
 
 if __name__ == "__main__":
-    root = ttk.Window(themename="darkly")  # 创建主窗口
+    root = tk.Tk()  # 创建主窗口
     app = PomodoroTimer(root)  # 创建应用实例
     root.mainloop()  # 进入主事件循环
