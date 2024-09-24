@@ -110,9 +110,14 @@ class PomodoroTimer:
         ok_button = tk.Button(top, text="确认", command=top.destroy, font=(font, 10), bg=bg_color, fg=fg_color)
         ok_button.pack(pady=10)
         top.grab_set()  # 设置模态窗口, 弹窗弹出时, 禁止对主窗口进行其他操作
-        self._center_window(top)  # 弹窗居中显示
         self._set_dark_title_bar(top)  # 设置弹窗黑色标题栏
         self._popup_schedule_reminder(top)  # 弹窗定时提醒
+
+        # 弹窗显示到所有应用的最前面
+        top.attributes("-topmost", 1)  # 窗口置顶
+        self._center_window(top)  # 居中显示再取消置顶, 不然居中位置不准确
+        top.after_idle(top.attributes, "-topmost", 0)  # 取消置顶
+
         self.root.wait_window(top)  # 等待弹窗关闭后再继续执行
 
     def _popup_schedule_reminder(self, window):
@@ -259,6 +264,7 @@ class PomodoroTimer:
             bg=bg_color,
             fg=fg_color,
             disabledbackground=bg_color,
+            insertbackground=fg_color,
         )
         self.work_entry.pack(side=tk.LEFT)
 
@@ -278,6 +284,7 @@ class PomodoroTimer:
             bg=bg_color,
             fg=fg_color,
             disabledbackground=bg_color,
+            insertbackground=fg_color,
         )
         self.rest_entry.pack(side=tk.LEFT)
 
