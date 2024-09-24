@@ -1,14 +1,15 @@
-import tkinter as tk  # 显示界面
-from tkinter import messagebox  # 显示消息框
-import winsound  # Windows播放声音
-import win32gui  # Windows GUI
-import time  # 处理时间
-import re  # 正则表达式
 import ctypes  # C语言扩展
+import os  # 系统交互
+import re  # 正则表达式
+import sys  # 系统属性
+import time  # 处理时间
+import tkinter as tk  # 显示界面
+import winsound  # Windows播放声音
+from tkinter import messagebox  # 显示消息框
 
-from win32api import GetMonitorInfo, MonitorFromPoint
+from win32api import GetMonitorInfo, MonitorFromPoint  # 屏幕信息获取
 
-# pyinstaller -n PomodoroTimer -F -w .\PomodoroTimer.py
+# pyinstaller -n PomodoroTimer --add-data "ring.wav;." -F -w .\PomodoroTimer.py
 # pyinstaller PomodoroTimer.spec
 
 font = "微软雅黑"
@@ -112,21 +113,32 @@ class PomodoroTimer:
         top.grab_set()  # 设置模态窗口, 弹窗弹出时, 禁止对主窗口进行其他操作
         self._set_dark_title_bar(top)  # 设置弹窗黑色标题栏
         self._popup_schedule_reminder(top)  # 弹窗定时提醒
-
-        # 弹窗显示到所有应用的最前面
-        top.attributes("-topmost", 1)  # 窗口置顶
-        self._center_window(top)  # 居中显示再取消置顶, 不然居中位置不准确
-        top.after_idle(top.attributes, "-topmost", 0)  # 取消置顶
-
         self.root.wait_window(top)  # 等待弹窗关闭后再继续执行
 
     def _popup_schedule_reminder(self, window):
         """弹窗更新提醒"""
-        if window.winfo_exists():
-            winsound.PlaySound("ring.wav", winsound.SND_ASYNC)
-            hwnd = win32gui.GetParent(window.winfo_id())
-            win32gui.FlashWindow(hwnd, True)
-            window.after(5 * 60 * 1000, lambda: self._popup_schedule_reminder(window))
+        # 音乐提醒
+        self._play_sound("ring.wav")
+        # 弹窗显示到所有应用的最前面
+        window.attributes("-topmost", 1)  # 窗口置顶
+        self._center_window(window)  # 居中显示再取消置顶, 不然居中位置不准确
+        window.after_idle(window.attributes, "-topmost", 0)  # 取消置顶
+        # 不按确认, 隔一段时间再提醒
+        window.after(5 * 60 * 1000, lambda: self._popup_schedule_reminder(window))
+
+    def _play_sound(self, sound_file):
+        """播放声音文件"""
+        if not getattr(sys, "frozen", False):
+            # 如果不是打包的exe, 直接播放同目录下的文件
+            winsound.PlaySound(sound_file, winsound.SND_ASYNC)
+            return
+        # 如果是打包的exe, 播放打包目录下的文件
+        sound_path = os.path.join(sys._MEIPASS, sound_file)
+        if os.path.exists(sound_path):
+            winsound.PlaySound(sound_path, winsound.SND_ASYNC)
+        else:
+            # exe中不存在文件，尝试播放同目录下的文件
+            winsound.PlaySound(sound_file, winsound.SND_ASYNC)
 
     def start_timer(self):
         try:
@@ -246,7 +258,7 @@ class PomodoroTimer:
         input_frame = tk.Frame(main_frame, bg=bg_color)
         input_frame.pack(pady=(5, 0))
         # 输入内容验证命令
-        vcmd = (self.root.register(self.validate_input), "%P")
+        vcmd = (self.root.register(lambda input_str: bool(re.match(input_regex, input_str))), "%P")
 
         # "工作时间"输入框架
         self.work_time = tk.StringVar(value="25")
@@ -288,10 +300,6 @@ class PomodoroTimer:
         )
         self.rest_entry.pack(side=tk.LEFT)
 
-    def validate_input(self, input_str) -> bool:
-        """验证输入是否有效"""
-        return True if re.match(input_regex, input_str) else False
-
     def _config_root_window(self) -> None:
         """配置主窗口"""
         self.root.title("番茄时钟")  # 窗口标题
@@ -318,7 +326,7 @@ class PomodoroTimer:
         height = window.winfo_height()
         x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
-        window.geometry("{}x{}+{}+{}".format(width, height, x, y))
+        window.geometry(f"{width}x{height}+{x}+{y}")
 
     def _bottom_right_window(self, window) -> None:
         window.update_idletasks()
