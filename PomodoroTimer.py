@@ -31,6 +31,10 @@ class PomodoroTimer:
         self.remaining_time = 0  # 计时剩余时间(秒)
         self.end_time = 0  # 计时结束时间
 
+        self.dragging = False
+        self.drag_start_x = 0
+        self.drag_start_y = 0
+
     def _update_time_label(self, time_var, label):
         """更新时间标签"""
         try:
@@ -83,6 +87,8 @@ class PomodoroTimer:
             self.rest_entry.config(state=tk.NORMAL)
             self._update_time_label(self.work_time, self.work_time_label)
             self._update_time_label(self.rest_time, self.rest_time_label)
+            self._center_window(self.root)  # 窗口居中
+            self._remove_drag()  # 移除拖动功能
         elif self.clock_state == 2:
             self.start_button.pack_forget()
             self.pause_button.pack_forget()
@@ -122,13 +128,14 @@ class PomodoroTimer:
             if self.remaining_time == 0:
                 if self.clock_state == 1:
                     self.remaining_time = max(1, int(float(self.work_time.get()) * 60))
+                    self._bottom_right_window(self.root)
                 elif self.clock_state == 2:
                     self.remaining_time = max(1, int(float(self.rest_time.get()) * 60))
             self.end_time = time.time() + self.remaining_time
         except ValueError:
             messagebox.showerror("错误", "请输入有效的数字")
             return
-
+        self._setup_drag()  # 设置拖动功能
         self.work_entry.config(state=tk.DISABLED)
         self.rest_entry.config(state=tk.DISABLED)
         self.start_button.pack_forget()
@@ -136,7 +143,6 @@ class PomodoroTimer:
         self.pause_button.pack(side=tk.LEFT, padx=10)
         self.reset_button.pack(side=tk.LEFT, padx=10)
         self.pause_button.config(state=tk.NORMAL)
-
         self.is_running = True
         self._update_timer()
 
@@ -162,6 +168,7 @@ class PomodoroTimer:
         self.pause_button.pack_forget()
         self.reset_button.pack_forget()
         self.start_button.pack(side=tk.LEFT, padx=10)
+        self._remove_drag()  # 移除拖动功能
 
     def _create_widgets(self) -> None:
         """创建并布局GUI组件"""
@@ -284,10 +291,10 @@ class PomodoroTimer:
         self.root.resizable(False, False)  # 禁止窗口最大化
         self.root.geometry("320x140")  # 窗口大小
         self.root.attributes("-topmost", True)  # 窗口最前
-        self._bottom_right_window(self.root)  # 窗口放置右下角
+        self._center_window(self.root)  # 窗口居中
         self._set_dark_title_bar(self.root)  # 黑色标题栏
         self.root.bind("<FocusIn>", lambda x: self.root.attributes("-alpha", 1.0))  # 获取焦点时不透明
-        self.root.bind("<FocusOut>", lambda x: self.root.attributes("-alpha", 0.5))  # 失去焦点时半透明
+        self.root.bind("<FocusOut>", lambda x: self.root.attributes("-alpha", 0.3))  # 失去焦点时半透明
 
     def _set_dark_title_bar(self, window) -> None:
         """设置黑色窗口标题栏"""
@@ -316,6 +323,46 @@ class PomodoroTimer:
         x = self.root.winfo_screenwidth() - window.winfo_width()
         y = self.root.winfo_screenheight() - window.winfo_height() - title_bar_height - taskbar_height
         window.geometry(f"+{x}+{y}")
+
+    def _setup_drag(self):
+        """设置拖动功能"""
+        self.root.overrideredirect(True)  # 移除窗口边框
+        self.root.bind("<ButtonPress-1>", self._start_drag)
+        self.root.bind("<B1-Motion>", self._drag)
+        self.root.bind("<ButtonRelease-1>", lambda event: setattr(self, "dragging", False))
+
+    def _remove_drag(self):
+        """移除拖动功能"""
+        self.root.overrideredirect(False)  # 恢复窗口边框
+        self._set_dark_title_bar(self.root)  # 重新设置黑色标题栏
+        self.root.attributes("-alpha", 1.0)  # 设置窗口不透明
+        self.root.unbind("<ButtonPress-1>")
+        self.root.unbind("<B1-Motion>")
+        self.root.unbind("<ButtonRelease-1>")
+
+    def _start_drag(self, event):
+        """开始拖动"""
+        if not self._is_on_button(event):
+            self.dragging = True
+            self.drag_start_x = event.x
+            self.drag_start_y = event.y
+
+    def _drag(self, event):
+        """拖动窗口"""
+        if self.dragging:
+            x = self.root.winfo_x() + (event.x - self.drag_start_x)
+            y = self.root.winfo_y() + (event.y - self.drag_start_y)
+            self.root.geometry(f"+{x}+{y}")
+
+    def _is_on_button(self, event):
+        """检查点击是否在按钮上"""
+        for widget in [self.start_button, self.pause_button, self.reset_button]:
+            if widget.winfo_ismapped():
+                x = self.root.winfo_x() + widget.winfo_x()
+                y = self.root.winfo_y() + widget.winfo_y()
+                if x <= event.x_root <= x + widget.winfo_width() and y <= event.y_root <= y + widget.winfo_height():
+                    return True
+        return False
 
 
 if __name__ == "__main__":
