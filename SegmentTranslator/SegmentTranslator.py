@@ -2,16 +2,13 @@ import re
 import sys
 
 from MyDict import MyDict
-from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QColor, QFontMetrics, QPen
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QHBoxLayout,
     QMainWindow,
     QPushButton,
-    QStyle,
-    QStyledItemDelegate,
     QTextEdit,
     QTreeWidget,
     QTreeWidgetItem,
@@ -36,6 +33,7 @@ FORM_NAMES = {
 UNCHECKED_SYMBOL = "☐"  # 未勾选符号
 CHECKED_SYMBOL = "☑"  # 已勾选符号
 
+
 STYLE = """
 QWidget {
     background-color: #2b2b2b;
@@ -47,6 +45,9 @@ QTextEdit, QTreeWidget {
     background-color: #1d1d1d;
     border: 1px solid #646464;
     font-size: 12pt;
+}
+QTreeWidget::item {
+    border: 1px solid #646464;
 }
 QPushButton {
     background-color: #365880;
@@ -69,7 +70,7 @@ class SegmentTranslator(QMainWindow):
     def __init__(self, dict: MyDict):
         super().__init__()
         self.setWindowTitle("分词翻译")
-        self.setGeometry(360, 240, 1400, 1000)
+        self.setGeometry(280, 200, 1200, 800)
         self.setStyleSheet(STYLE)
         self.create_widgets()
 
@@ -83,7 +84,7 @@ class SegmentTranslator(QMainWindow):
 
         # 创建输入框
         self.input_field = QTextEdit()
-        self.input_field.setFixedHeight(300)  # 设置输入框的高度
+        self.input_field.setFixedHeight(200)  # 设置输入框的高度
         self.input_field.setAcceptRichText(False)  # 禁用富文本
         layout.addWidget(self.input_field)  # 将输入框添加到布局中
 
@@ -174,7 +175,7 @@ class SegmentTranslator(QMainWindow):
             form = form.strip()
             value = value.strip()
             form = FORM_NAMES.get(form, form)
-            value = FORM_NAMES.get(value, value) if form == "变体" else value
+            value = ";".join([FORM_NAMES.get(f, f) for f in list(value)]) if form == "变体" else value
             formatted_exchange.append(f"{form}:{value}")
 
         item.setText(3, "\n".join(formatted_exchange))
@@ -190,11 +191,10 @@ class CustomTreeWidget(QTreeWidget):
         self.setHeaderLabels(["单词", "音标", "翻译", "变形", "忽略"])  # 设置表头
         self.setColumnWidth(0, 160)  # 设置列宽
         self.setColumnWidth(1, 160)
-        self.setColumnWidth(2, 700)
-        self.setColumnWidth(3, 300)
+        self.setColumnWidth(2, 600)
+        self.setColumnWidth(3, 200)
         self.setColumnWidth(4, 30)
         self.setIndentation(0)  # 设置不缩进
-        self.setItemDelegate(WordItemDelegate())  # 设置自定义的 ItemDelegate
         # 绑定点击"忽略"按钮的事件
         self.itemClicked.connect(lambda item, column: self.toggle_ignore_word(item) if column == 4 else None)
 
@@ -218,59 +218,9 @@ class CustomTreeWidget(QTreeWidget):
         item.setText(4, new_status)
 
 
-class WordItemDelegate(QStyledItemDelegate):
-    def paint(self, painter, option, index):
-        """绘制文本"""
-        painter.save()  # 保存当前的绘图状态
-
-        # 绘制背景
-        if option.state & QStyle.State_Selected:  # 如果当前项被选中
-            painter.fillRect(option.rect, QColor("#365880"))  # 填充矩形为蓝色
-        else:
-            painter.fillRect(option.rect, QColor("#1d1d1d"))  # 填充矩形为黑色
-
-        # 绘制边框
-        painter.setPen(QPen(QColor("#646464")))  # 设置绘图笔(灰色)
-        painter.drawRect(option.rect.adjusted(0, 0, -1, -1))  # 绘制矩形边框
-
-        # 字体参数
-        fm = QFontMetrics(painter.font())  # 获取字体度量
-        line_height = fm.height()  # 行高
-        line_spacing = int(fm.height() * 0.1)  # 行距
-        top_margin = int(fm.height() * 0.1)  # 顶部边距
-        side_margin = int(fm.averageCharWidth() * 0.5)  # 左右边距
-        painter.setPen(QColor("#fdf6e3"))  # 设置绘图笔的颜色
-        y = option.rect.top() + top_margin  # 添加一些顶部边距
-
-        # 绘制文本
-        text = index.data()  # 获取当前项的数据
-        lines = text.split("\n")  # 将文本按行分割
-        for line in lines:
-            painter.drawText(
-                option.rect.left() + side_margin,  # 文本左上角x坐标
-                y,  # 文本左上角y坐标
-                option.rect.width() - 2 * side_margin,  # 文本宽度(留下左右两个边距的空间)
-                line_height,  # 文本高度
-                Qt.AlignLeft | Qt.AlignVCenter,  # 对齐方式: 左对齐, 垂直居中
-                line,  # 文本内容
-            )
-            y += line_height + line_spacing  # 更新y坐标
-
-        painter.restore()  # 恢复绘图状态
-
-    def sizeHint(self, option, index):
-        """布局空间控制"""
-        text = index.data()  # 获取当前项的数据
-        line_count = len(text.split("\n"))  # 将文本按行分割
-        fm = QFontMetrics(option.font)  # 获取字体度量
-        line_height = fm.height()  # 行高
-        line_spacing = int(fm.height() * 0.1)  # 行距
-        height = max(10, line_count * line_height + (line_count - 1) * line_spacing + 5)  # 高度
-        return QSize(option.rect.width(), height)  # 返回一个QSize对象(宽,高)
-
-
 if __name__ == "__main__":
-    app = QApplication(sys.argv + ["-platform", "windows:darkmode=1"])
+    app = QApplication(sys.argv)
+    app.setStyle("fusion")
     dictionary_app = SegmentTranslator(MyDict("sqldict.db"))
     dictionary_app.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
