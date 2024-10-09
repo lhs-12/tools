@@ -3,6 +3,7 @@ import sys
 
 from MyDict import MyDict
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -104,14 +105,45 @@ class SegmentTranslator(QMainWindow):
         layout.addLayout(button_layout)  # 将按钮布局添加到布局中
 
         # 创建翻译结果表格
-        self.translation_table = CustomTreeWidget(self)  # 创建表格
+        self.translation_table = QTreeWidget()
+        self.translation_table.setAlternatingRowColors(False)
+        self.translation_table.setHeaderLabels(["单词", "音标", "翻译", "变形", "忽略"])  # 设置表头
+        self.translation_table.setColumnWidth(0, 160)  # 设置列宽
+        self.translation_table.setColumnWidth(1, 160)
+        self.translation_table.setColumnWidth(2, 600)
+        self.translation_table.setColumnWidth(3, 200)
+        self.translation_table.setColumnWidth(4, 30)
+        self.translation_table.setIndentation(0)  # 设置不缩进
         layout.addWidget(self.translation_table)
+        # 绑定点击忽略列事件(另一个实现思路: 使用QTreeWidget.setItemWidget在最后一列绑定QPushButton按钮)
+        self.translation_table.itemClicked.connect(
+            lambda item, column: self.toggle_ignore_word(item) if column == 4 else None
+        )
+        # 绑定空格到忽略列事件
+        shortcut = QShortcut(QKeySequence(Qt.Key_Space), self.translation_table)
+        shortcut.activated.connect(self.on_table_space_pressed)
 
         # 创建未知单词显示框
         self.unknown_words_display = QTextEdit()
         self.unknown_words_display.setFixedHeight(80)
         self.unknown_words_display.setVisible(False)
         layout.addWidget(self.unknown_words_display)
+
+    def on_table_space_pressed(self):
+        item = self.translation_table.currentItem()
+        if item:
+            self.toggle_ignore_word(item)
+
+    def toggle_ignore_word(self, item):
+        word = item.text(0).lower()
+        current_status = item.text(4)
+        if current_status == UNCHECKED_SYMBOL:
+            self.ignored_words.add(word)
+            new_status = CHECKED_SYMBOL
+        else:
+            self.ignored_words.discard(word)
+            new_status = UNCHECKED_SYMBOL
+        item.setText(4, new_status)
 
     def tokenize_and_deduplicate(self, sentence):
         # 匹配一个或多个字母,数字,下划线,连字符的组合, 后面可接一个's(全角/半角)或'(全角/半角)
@@ -181,41 +213,6 @@ class SegmentTranslator(QMainWindow):
         item.setText(3, "\n".join(formatted_exchange))
         item.setText(4, CHECKED_SYMBOL if word_info["word"].lower() in self.ignored_words else UNCHECKED_SYMBOL)
         self.translation_table.addTopLevelItem(item)
-
-
-class CustomTreeWidget(QTreeWidget):
-    def __init__(self, segment_translator: SegmentTranslator):
-        super().__init__()
-        self.segment_translator = segment_translator
-        self.setAlternatingRowColors(False)
-        self.setHeaderLabels(["单词", "音标", "翻译", "变形", "忽略"])  # 设置表头
-        self.setColumnWidth(0, 160)  # 设置列宽
-        self.setColumnWidth(1, 160)
-        self.setColumnWidth(2, 600)
-        self.setColumnWidth(3, 200)
-        self.setColumnWidth(4, 30)
-        self.setIndentation(0)  # 设置不缩进
-        # 绑定点击"忽略"按钮的事件
-        self.itemClicked.connect(lambda item, column: self.toggle_ignore_word(item) if column == 4 else None)
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Space:
-            item = self.currentItem()
-            if item:
-                self.toggle_ignore_word(item)
-        else:
-            super().keyPressEvent(event)
-
-    def toggle_ignore_word(self, item):
-        word = item.text(0).lower()
-        current_status = item.text(4)
-        if current_status == UNCHECKED_SYMBOL:
-            self.segment_translator.ignored_words.add(word)
-            new_status = CHECKED_SYMBOL
-        else:
-            self.segment_translator.ignored_words.discard(word)
-            new_status = UNCHECKED_SYMBOL
-        item.setText(4, new_status)
 
 
 if __name__ == "__main__":
