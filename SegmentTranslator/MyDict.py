@@ -7,13 +7,14 @@ SqlDict类, 有以下几个方法
 csv数据来源: https://github.com/skywind3000/ECDICT
 
 数据库字段
-| 字段        | 解释                          |
-| ----------- | ----------------------------- |
-| word        | 单词名称                      |
-| phonetic    | 音标                          |
-| translation | 中文释义                      |
-| exchange    | 时态复数等变换, 使用 "/" 分割 |
-| definition  | 英文释意                      |
+| 字段         | 解释                          |
+| ------------ | ----------------------------- |
+| word         | 单词名称                      |
+| phonetic     | 音标                          |
+| translation  | 中文释义                      |
+| exchange     | 时态复数等变换, 使用 "/" 分割 |
+| definition   | 英文释意                      |
+| word_ignored | 是否忽略                      |
 
 `exchange` 字段说明:
 格式如下: "类型1:变换单词1/类型2:变换单词2", 比如good的exchange是"s:goods/0:good/1:s", 具体类型含义如下:
@@ -61,7 +62,8 @@ class MyDict:
             "phonetic" VARCHAR(64),
             "translation" TEXT,
             "exchange" TEXT,
-            "definition" TEXT
+            "definition" TEXT,
+            "word_ignored" BOOLEAN DEFAULT FALSE
         );
         """)
         self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS "sqldict_1" ON sqldict (id);')
@@ -91,13 +93,21 @@ class MyDict:
         self.close()
         if result:
             return {
+                "id": result[0],
                 "word": result[1],
                 "phonetic": result[2],
                 "translation": result[3],
                 "exchange": result[4],
                 "definition": result[5],
+                "word_ignored": result[6],
             }
         return None
+
+    def update_ignore_status(self, word_id, word_ignored):
+        self.connect()
+        self.cursor.execute("UPDATE sqldict SET word_ignored = ? WHERE id = ?", (word_ignored, word_id))
+        self.conn.commit()
+        self.close()
 
 
 def _transfer_csv(input_file, output_file, columns_to_keep):
@@ -126,5 +136,6 @@ if __name__ == "__main__":
         print("英文释义:")
         for line in word_info["definition"].split("\\n"):
             print(f"  {line}")
+        print(f"是否忽略: {bool(word_info['word_ignored'])}")
     else:
         print("未找到该单词")

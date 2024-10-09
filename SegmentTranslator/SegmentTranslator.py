@@ -74,9 +74,7 @@ class SegmentTranslator(QMainWindow):
         self.setGeometry(280, 200, 1200, 800)
         self.setStyleSheet(STYLE)
         self.create_widgets()
-
         self.sql_dict = dict
-        self.ignored_words = set()
 
     def create_widgets(self):
         main_widget = QWidget()
@@ -135,14 +133,14 @@ class SegmentTranslator(QMainWindow):
             self.toggle_ignore_word(item)
 
     def toggle_ignore_word(self, item):
-        word = item.text(0).lower()
         current_status = item.text(4)
+        word_id = item.data(0, Qt.ItemDataRole.UserRole)
         if current_status == UNCHECKED_SYMBOL:
-            self.ignored_words.add(word)
             new_status = CHECKED_SYMBOL
+            self.sql_dict.update_ignore_status(word_id, True)
         else:
-            self.ignored_words.discard(word)
             new_status = UNCHECKED_SYMBOL
+            self.sql_dict.update_ignore_status(word_id, False)
         item.setText(4, new_status)
 
     def tokenize_and_deduplicate(self, sentence):
@@ -173,17 +171,15 @@ class SegmentTranslator(QMainWindow):
         self.unknown_words_display.clear()
         self.unknown_words_display.setVisible(False)
 
+        show_ignore_words = self.show_ignored_words_checkbox.isChecked()
         unknown_words = []
         for word in words:
-            show_ignore_words = self.show_ignored_words_checkbox.isChecked()
-            if show_ignore_words or word not in self.ignored_words:
-                word_info = self.sql_dict.query_word(word)
-                if word_info:
-                    # 如果找到单词信息，添加到表格中
+            word_info = self.sql_dict.query_word(word)
+            if word_info:
+                if show_ignore_words or not word_info["word_ignored"]:
                     self.add_word_to_table(word_info)
-                else:
-                    # 如果没有找到单词信息，添加到未知单词列表
-                    unknown_words.append(word)
+            else:
+                unknown_words.append(word)
 
         if unknown_words:
             # 如果有未知单词，显示它们
@@ -192,10 +188,10 @@ class SegmentTranslator(QMainWindow):
 
     def add_word_to_table(self, word_info):
         item = QTreeWidgetItem(self.translation_table)
+        item.setData(0, Qt.ItemDataRole.UserRole, word_info["id"])  # 隐藏列, 单词id
         item.setText(0, word_info["word"])
         item.setText(1, word_info["phonetic"])
         item.setText(2, word_info["translation"].replace("\\n", "\n").replace("\\r", ""))
-
         # 处理变形列
         exchange_parts = word_info["exchange"].split("/")
         formatted_exchange = []
@@ -209,9 +205,8 @@ class SegmentTranslator(QMainWindow):
             form = FORM_NAMES.get(form, form)
             value = ";".join([FORM_NAMES.get(f, f) for f in list(value)]) if form == "变体" else value
             formatted_exchange.append(f"{form}:{value}")
-
         item.setText(3, "\n".join(formatted_exchange))
-        item.setText(4, CHECKED_SYMBOL if word_info["word"].lower() in self.ignored_words else UNCHECKED_SYMBOL)
+        item.setText(4, CHECKED_SYMBOL if word_info["word_ignored"] else UNCHECKED_SYMBOL)
         self.translation_table.addTopLevelItem(item)
 
 
