@@ -32,14 +32,12 @@ csv数据来源: https://github.com/skywind3000/ECDICT
 """
 
 import csv
-import os
 import sqlite3
-import sys
 
 
 class MyDict:
     def __init__(self, db_file):
-        self.db_file = os.path.join(sys._MEIPASS, db_file) if getattr(sys, "frozen", False) else db_file
+        self.db_file = db_file
         self.conn = None
         self.cursor = None
 

@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-# pyinstaller -n SegmentTranslator --add-data "sqldict.db;." --add-data "MyDict.py;." -F -w .\SegmentTranslator.py
+# pyinstaller -n SegmentTranslator --add-data "MyDict.py;." -F -w .\SegmentTranslator.py
 
 FORM_NAMES = {
     "p": "过去式",
