@@ -1,5 +1,8 @@
+import csv
+import os
 import re
 import sys
+import time
 
 from MyDict import MyDict
 from PySide6.QtCore import Qt
@@ -7,8 +10,10 @@ from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QDialog,
     QHBoxLayout,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QTextEdit,
     QTreeWidget,
@@ -33,6 +38,8 @@ FORM_NAMES = {
 
 UNCHECKED_SYMBOL = "☐"  # 未勾选符号
 CHECKED_SYMBOL = "☑"  # 已勾选符号
+ADD_SYMBOL = "+"
+ADDED_SYMBOL = "✓"
 
 
 STYLE = """
@@ -71,10 +78,11 @@ class SegmentTranslator(QMainWindow):
     def __init__(self, dict: MyDict):
         super().__init__()
         self.setWindowTitle("分词翻译")
-        self.setGeometry(280, 200, 1200, 800)
+        self.setGeometry(220, 200, 1280, 800)
         self.setStyleSheet(STYLE)
         self.create_widgets()
         self.sql_dict = dict
+        self.wordbook = {}
 
     def create_widgets(self):
         main_widget = QWidget()
@@ -89,8 +97,9 @@ class SegmentTranslator(QMainWindow):
 
         # 创建按钮框架
         button_layout = QHBoxLayout()  # 创建一个水平布局管理器
-        button_layout.addStretch(1)  # 弹性空间布局, 使按钮居中
+        layout.addLayout(button_layout)  # 将按钮布局添加到布局中
 
+        button_layout.addStretch(1)  # 调整按钮位置, 增加伸缩量
         self.search_button = QPushButton("查询")  # 创建查询按钮
         self.search_button.setFixedSize(160, 30)  # 设置按钮大小
         self.search_button.clicked.connect(self.search_words)  # 将按钮的点击事件连接到search_words方法
@@ -99,24 +108,26 @@ class SegmentTranslator(QMainWindow):
         self.show_ignored_words_checkbox = QCheckBox("显示忽略的单词")  # 创建一个复选框，文本为"显示忽略的单词"
         self.show_ignored_words_checkbox.stateChanged.connect(lambda: self.search_words())  # 将复选框的选中状态绑定事件
         button_layout.addWidget(self.show_ignored_words_checkbox)  # 将复选框添加到布局中
-        button_layout.addStretch(1)  # 弹性空间布局, 使复选框居中
-        layout.addLayout(button_layout)  # 将按钮布局添加到布局中
+        button_layout.addStretch(1)
+
+        self.wordbook_button = QPushButton("打开单词本")
+        self.wordbook_button.clicked.connect(self.show_wordbook)
+        button_layout.addWidget(self.wordbook_button)
 
         # 创建翻译结果表格
         self.translation_table = QTreeWidget()
         self.translation_table.setAlternatingRowColors(False)
-        self.translation_table.setHeaderLabels(["单词", "音标", "翻译", "变形", "忽略"])  # 设置表头
+        self.translation_table.setHeaderLabels(["单词", "音标", "翻译", "变形", "忽略", "记录"])
         self.translation_table.setColumnWidth(0, 160)  # 设置列宽
         self.translation_table.setColumnWidth(1, 160)
         self.translation_table.setColumnWidth(2, 600)
         self.translation_table.setColumnWidth(3, 200)
-        self.translation_table.setColumnWidth(4, 30)
+        self.translation_table.setColumnWidth(4, 60)
+        self.translation_table.setColumnWidth(5, 20)
         self.translation_table.setIndentation(0)  # 设置不缩进
         layout.addWidget(self.translation_table)
         # 绑定点击忽略列事件(另一个实现思路: 使用QTreeWidget.setItemWidget在最后一列绑定QPushButton按钮)
-        self.translation_table.itemClicked.connect(
-            lambda item, column: self.toggle_ignore_word(item) if column == 4 else None
-        )
+        self.translation_table.itemClicked.connect(self.handle_item_click)
         # 绑定空格到忽略列事件
         shortcut = QShortcut(QKeySequence(Qt.Key_Space), self.translation_table)
         shortcut.activated.connect(self.on_table_space_pressed)
@@ -126,6 +137,25 @@ class SegmentTranslator(QMainWindow):
         self.unknown_words_display.setFixedHeight(80)
         self.unknown_words_display.setVisible(False)
         layout.addWidget(self.unknown_words_display)
+
+    def handle_item_click(self, item, column):
+        if column == 4:
+            self.toggle_ignore_word(item)
+        elif column == 5:
+            self.toggle_add_wordbook(item)
+
+    def show_wordbook(self):
+        dialog = WordbookDialog(self.wordbook, self)
+        dialog.exec()
+
+    def toggle_add_wordbook(self, item):
+        word = item.text(0)
+        if word not in self.wordbook:
+            self.wordbook[word] = [item.text(1), item.text(2), item.text(3)]
+            item.setText(5, ADDED_SYMBOL)
+        else:
+            self.wordbook.pop(word)
+            item.setText(5, ADD_SYMBOL)
 
     def on_table_space_pressed(self):
         item = self.translation_table.currentItem()
@@ -207,7 +237,60 @@ class SegmentTranslator(QMainWindow):
             formatted_exchange.append(f"{form}:{value}")
         item.setText(3, "\n".join(formatted_exchange))
         item.setText(4, CHECKED_SYMBOL if word_info["word_ignored"] else UNCHECKED_SYMBOL)
+        item.setText(5, ADDED_SYMBOL if word_info["word"] in self.wordbook else ADD_SYMBOL)
         self.translation_table.addTopLevelItem(item)
+
+
+class WordbookDialog(QDialog):
+    def __init__(self, wordbook, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("单词本")
+        self.setMinimumSize(1000, 400)
+        layout = QVBoxLayout(self)
+        self.wordbook = wordbook
+
+        self.table = QTreeWidget()
+        self.table.setHeaderLabels(["单词", "音标", "翻译", "变形"])
+        self.table.setColumnWidth(0, 160)
+        self.table.setColumnWidth(1, 160)
+        self.table.setColumnWidth(2, 600)
+        self.table.setColumnWidth(3, 200)
+        self.table.setIndentation(0)
+        layout.addWidget(self.table)
+
+        self.export_button = QPushButton("导出到CSV")
+        self.export_button.clicked.connect(self.export_csv)
+        layout.addWidget(self.export_button)
+
+        self.update_table()
+
+    def update_table(self):
+        self.table.clear()
+        for wk, wv in self.wordbook.items():
+            item = QTreeWidgetItem(self.table)
+            item.setText(0, wk)
+            item.setText(1, wv[0])
+            item.setText(2, wv[1])
+            item.setText(3, wv[2])
+
+    def export_csv(self):
+        if not self.wordbook:
+            QMessageBox.warning(self, "警告", "单词本为空")
+            return
+
+        path = os.path.join(
+            os.path.expanduser("~/Desktop"),
+            "wordbook-{}.csv".format(time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())),
+        )
+        try:
+            with open(path, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.writer(f)
+                writer.writerow(["单词", "音标", "翻译", "变形"])
+                for wk, wv in self.wordbook.items():
+                    writer.writerow([wk, wv[0], wv[1], wv[2]])
+            QMessageBox.information(self, "导出成功", f"文件已保存到：{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"导出失败：{str(e)}")
 
 
 if __name__ == "__main__":
