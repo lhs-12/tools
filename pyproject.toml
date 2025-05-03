@@ -1,0 +1,20 @@
+[project]
+name = "tools"
+version = "0.1.0"
+description = "tools"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyinstaller>=6.13.0",
+    "pyside6>=6.9.0",
+    "pywin32>=310",
+]
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "A", "PLC", "PLE", "PLW", "I", "UP", "B", "SIM"]
+ignore = []

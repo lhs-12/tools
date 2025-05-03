@@ -1,3 +1,5 @@
-_temp
 __pycache__
+.vscode
+.idea
+.temp
 *.db

@@ -36,7 +36,8 @@ class PomodoroTimer:
         self.drag_start_x = 0
         self.drag_start_y = 0
 
-    def _update_time_label(self, time_var, label):
+    @staticmethod
+    def _update_time_label(time_var, label):
         """更新时间标签"""
         try:
             input_value = time_var.get()
@@ -70,6 +71,7 @@ class PomodoroTimer:
 
     def _timer_finished(self):
         """计时器结束逻辑"""
+        msg = ""
         if self.clock_state == 1:
             msg = "工作计时结束"
             self.clock_state = 2
@@ -126,7 +128,8 @@ class PomodoroTimer:
         # 不按确认, 隔一段时间再提醒
         window.after(5 * 60 * 1000, lambda: self._popup_schedule_reminder(window))
 
-    def _play_sound(self, sound_file):
+    @staticmethod
+    def _play_sound(sound_file):
         """播放声音文件"""
         if not getattr(sys, "frozen", False):
             # 如果不是打包的exe, 直接播放同目录下的文件
@@ -311,7 +314,8 @@ class PomodoroTimer:
         self.root.bind("<FocusIn>", lambda x: self.root.attributes("-alpha", 1.0))  # 获取焦点时不透明
         self.root.bind("<FocusOut>", lambda x: self.root.attributes("-alpha", 0.3))  # 失去焦点时半透明
 
-    def _set_dark_title_bar(self, window) -> None:
+    @staticmethod
+    def _set_dark_title_bar(window) -> None:
         """设置黑色窗口标题栏"""
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
             ctypes.windll.user32.GetParent(window.winfo_id()),  # 窗口句柄
@@ -334,7 +338,7 @@ class PomodoroTimer:
         monitor_area = monitor_info.get("Monitor")
         work_area = monitor_info.get("Work")
         taskbar_height = monitor_area[3] - work_area[3]
-        title_bar_height = root.winfo_rooty() - root.winfo_y()
+        title_bar_height = self.root.winfo_rooty() - self.root.winfo_y()
         x = self.root.winfo_screenwidth() - window.winfo_width()
         y = self.root.winfo_screenheight() - window.winfo_height() - title_bar_height - taskbar_height
         window.geometry(f"+{x}+{y}")
@@ -381,6 +385,6 @@ class PomodoroTimer:
 
 
 if __name__ == "__main__":
-    root = tk.Tk()  # 创建主窗口
-    app = PomodoroTimer(root)  # 创建应用实例
-    root.mainloop()  # 进入主事件循环
+    tk_root = tk.Tk()  # 创建主窗口
+    app = PomodoroTimer(tk_root)  # 创建应用实例
+    tk_root.mainloop()  # 进入主事件循环

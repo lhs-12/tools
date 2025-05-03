@@ -75,13 +75,13 @@ QHeaderView::section {
 
 
 class SegmentTranslator(QMainWindow):
-    def __init__(self, dict: MyDict):
+    def __init__(self, my_dict: MyDict):
         super().__init__()
         self.setWindowTitle("分词翻译")
         self.setGeometry(220, 200, 1280, 800)
         self.setStyleSheet(STYLE)
         self.create_widgets()
-        self.sql_dict = dict
+        self.sql_dict = my_dict
         self.wordbook = {}
 
     def create_widgets(self):
@@ -129,7 +129,7 @@ class SegmentTranslator(QMainWindow):
         # 绑定点击忽略列事件(另一个实现思路: 使用QTreeWidget.setItemWidget在最后一列绑定QPushButton按钮)
         self.translation_table.itemClicked.connect(self.handle_item_click)
         # 绑定空格到忽略列事件
-        shortcut = QShortcut(QKeySequence(Qt.Key_Space), self.translation_table)
+        shortcut = QShortcut(QKeySequence(Qt.Key.Key_Space), self.translation_table)
         shortcut.activated.connect(self.on_table_space_pressed)
 
         # 创建未知单词显示框
@@ -173,21 +173,22 @@ class SegmentTranslator(QMainWindow):
             self.sql_dict.update_ignore_status(word_id, False)
         item.setText(4, new_status)
 
-    def tokenize_and_deduplicate(self, sentence):
+    @staticmethod
+    def tokenize_and_deduplicate(sentence):
         # 匹配一个或多个字母,数字,下划线,连字符的组合, 后面可接一个's(全角/半角)或'(全角/半角)
         words = re.findall(r"\b[\w-]+(?:'s?|’s?)?(?=\s|\b)", sentence)
         processed_words = []
         for word in words:
             # 去掉's(全角/半角)或'(全角/半角)
-            word = re.sub(r"'s?$|’s?$", "", word)
-            if "_" in word or "-" in word:
+            w = re.sub(r"'s?$|’s?$", "", word)
+            if "_" in w or "-" in w:
                 # 如果单词包含下划线或连字符，则分割
-                processed_words.extend(re.split(r"[_-]", word))
-            elif re.search(r"[A-Z]", word):
+                processed_words.extend(re.split(r"[_-]", w))
+            elif re.search(r"[A-Z]", w):
                 # 如果单词包含大写字母，则分割成多个单词
-                processed_words.extend(re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)|\d+", word))
+                processed_words.extend(re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)|\d+", w))
             else:
-                processed_words.append(word)
+                processed_words.append(w)
         # 返回去重后的单词列表
         return list(dict.fromkeys(word.lower() for word in processed_words))
 
