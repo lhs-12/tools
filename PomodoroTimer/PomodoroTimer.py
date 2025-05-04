@@ -9,6 +9,7 @@ from tkinter import messagebox  # 显示消息框
 
 from win32api import GetMonitorInfo, MonitorFromPoint  # 屏幕信息获取
 
+# cd ./PomodoroTimer
 # pyinstaller -n PomodoroTimer --add-data "timer.ico;." --add-data "ring.wav;." -i timer.ico -F -w .\PomodoroTimer.py
 # pyinstaller PomodoroTimer.spec
 
