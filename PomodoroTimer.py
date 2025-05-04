@@ -9,7 +9,7 @@ from tkinter import messagebox  # 显示消息框
 
 from win32api import GetMonitorInfo, MonitorFromPoint  # 屏幕信息获取
 
-# pyinstaller -n PomodoroTimer --add-data "ring.wav;." -F -w .\PomodoroTimer.py
+# pyinstaller -n PomodoroTimer --add-data "timer.ico;." --add-data "ring.wav;." -i timer.ico -F -w .\PomodoroTimer.py
 # pyinstaller PomodoroTimer.spec
 
 font = "微软雅黑"
@@ -17,6 +17,8 @@ bg_color = "#1b1b1b"
 fg_color = "#fdf6e3"
 button1_color = "#09b286"
 button2_color = "#a7afb6"
+init_geometry = "320x140"
+running_geometry = "138x138"
 
 input_regex = r"^(([0]|[1-9]\d{0,2})((\.\d{0,2})?))?$"
 
@@ -83,13 +85,14 @@ class PomodoroTimer:
         self._popup_message("提示", msg)
 
         if self.clock_state == 1:
+            self.is_running = False
             self.reset_button.pack_forget()
             self.start_button.pack(side=tk.LEFT, padx=10)
-            self.is_running = False
             self.work_entry.config(state=tk.NORMAL)
             self.rest_entry.config(state=tk.NORMAL)
             self._update_time_label(self.work_time, self.work_time_label)
             self._update_time_label(self.rest_time, self.rest_time_label)
+            self._work_state_display_adjust(0)
             self._center_window(self.root)  # 窗口居中
             self._remove_drag()  # 移除拖动功能
         elif self.clock_state == 2:
@@ -99,6 +102,7 @@ class PomodoroTimer:
             self.end_time = time.time() + self.remaining_time
             self.is_running = True
             self._update_timer()
+            self._work_state_display_adjust(2)
 
     def _popup_message(self, title, message) -> None:
         """弹窗消息"""
@@ -148,9 +152,10 @@ class PomodoroTimer:
             if self.remaining_time == 0:
                 if self.clock_state == 1:
                     self.remaining_time = max(1, int(float(self.work_time.get()) * 60))
-                    self._bottom_right_window(self.root)
+                    self._work_state_display_adjust(1)
                 elif self.clock_state == 2:
                     self.remaining_time = max(1, int(float(self.rest_time.get()) * 60))
+                    self._work_state_display_adjust(2)
             self.end_time = time.time() + self.remaining_time
         except ValueError:
             messagebox.showerror("错误", "请输入有效的数字")
@@ -188,7 +193,34 @@ class PomodoroTimer:
         self.pause_button.pack_forget()
         self.reset_button.pack_forget()
         self.start_button.pack(side=tk.LEFT, padx=10)
+        self._work_state_display_adjust(0)
+        self._bottom_right_window(self.root)
         self._remove_drag()  # 移除拖动功能
+
+    def _work_state_display_adjust(self, state):
+        if state == 0:
+            self.work_input_frame.pack_forget()
+            self.work_time_label.pack_forget()
+            self.rest_input_frame.pack_forget()
+            self.rest_time_label.pack_forget()
+            self.work_input_frame.pack(side=tk.LEFT, padx=(0, 10))  # padx: 左, 右间距
+            self.work_time_label.pack(side=tk.LEFT, padx=(0, 20))
+            self.rest_input_frame.pack(side=tk.LEFT, padx=(10, 0))
+            self.rest_time_label.pack(side=tk.LEFT, padx=(20, 0))
+            self.root.geometry(init_geometry)
+        else:
+            if state == 1:
+                self.rest_input_frame.pack_forget()
+                self.rest_time_label.pack_forget()
+                self.work_input_frame.pack(side=tk.LEFT, padx=(0, 0))
+                self.work_time_label.pack(side=tk.LEFT, padx=(0, 0))
+            elif state == 2:
+                self.work_input_frame.pack_forget()
+                self.work_time_label.pack_forget()
+                self.rest_input_frame.pack(side=tk.LEFT, padx=(0, 0))
+                self.rest_time_label.pack(side=tk.LEFT, padx=(0, 0))
+            self.root.geometry(running_geometry)
+            self._bottom_right_window(self.root)
 
     def _create_widgets(self) -> None:
         """创建并布局GUI组件"""
@@ -201,6 +233,8 @@ class PomodoroTimer:
         self._create_timer_frame(main_frame)
         # 配置按钮框架
         self._create_button_frame(main_frame)
+        # 初始显示工作区和休息区
+        self._work_state_display_adjust(0)
 
     def _create_button_frame(self, main_frame) -> None:
         font_size = 10
@@ -251,9 +285,7 @@ class PomodoroTimer:
         timer_frame.pack(pady=(0, 0))
         font_size = 24
         self.work_time_label = tk.Label(timer_frame, text="25:00", font=(font, font_size), bg=bg_color, fg=fg_color)
-        self.work_time_label.pack(side=tk.LEFT, padx=(0, 20))  # padx第一个值为左间距, 第二个值为右间距
         self.rest_time_label = tk.Label(timer_frame, text="05:00", font=(font, font_size), bg=bg_color, fg=fg_color)
-        self.rest_time_label.pack(side=tk.LEFT, padx=(20, 0))
 
     def _create_input_frame(self, main_frame) -> None:
         font_size = 12
@@ -267,7 +299,6 @@ class PomodoroTimer:
         self.work_time = tk.StringVar(value="25")
         self.work_time.trace_add("write", lambda a, b, c: self._update_time_label(self.work_time, self.work_time_label))
         work_input_frame = tk.Frame(input_frame, bg=bg_color)
-        work_input_frame.pack(side=tk.LEFT, padx=(0, 10), pady=(0, 0))
         tk.Label(work_input_frame, text="工作:", font=(font, font_size), bg=bg_color, fg=fg_color).pack(side=tk.LEFT)
         self.work_entry = tk.Entry(
             work_input_frame,
@@ -282,12 +313,12 @@ class PomodoroTimer:
             insertbackground=fg_color,
         )
         self.work_entry.pack(side=tk.LEFT)
+        self.work_input_frame = work_input_frame
 
         # "休息时间"输入框架
         self.rest_time = tk.StringVar(value="5")  # 休息时间
         self.rest_time.trace_add("write", lambda a, b, c: self._update_time_label(self.rest_time, self.rest_time_label))
         rest_input_frame = tk.Frame(input_frame, bg=bg_color)
-        rest_input_frame.pack(side=tk.LEFT, padx=(10, 0))
         tk.Label(rest_input_frame, text="休息:", font=(font, font_size), bg=bg_color, fg=fg_color).pack(side=tk.LEFT)
         self.rest_entry = tk.Entry(
             rest_input_frame,
@@ -302,12 +333,20 @@ class PomodoroTimer:
             insertbackground=fg_color,
         )
         self.rest_entry.pack(side=tk.LEFT)
+        self.rest_input_frame = rest_input_frame
 
     def _config_root_window(self) -> None:
         """配置主窗口"""
         self.root.title("番茄时钟")  # 窗口标题
+
+        if hasattr(sys, "_MEIPASS"):
+            icon_path = os.path.join(sys._MEIPASS, "timer.ico")
+        else:
+            icon_path = os.path.join(os.path.dirname(__file__), "timer.ico")
+        self.root.iconbitmap(icon_path)
+
         self.root.resizable(False, False)  # 禁止窗口最大化
-        self.root.geometry("320x140")  # 窗口大小
+        self.root.geometry(init_geometry)  # 窗口大小
         self.root.attributes("-topmost", True)  # 窗口最前
         self._center_window(self.root)  # 窗口居中
         self._set_dark_title_bar(self.root)  # 黑色标题栏
