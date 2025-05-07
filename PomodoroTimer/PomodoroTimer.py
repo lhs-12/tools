@@ -94,8 +94,8 @@ class PomodoroTimer:
             self._update_time_label(self.work_time, self.work_time_label)
             self._update_time_label(self.rest_time, self.rest_time_label)
             self._work_state_display_adjust(0)
-            self._center_window(self.root)  # 窗口居中
             self._remove_drag()  # 移除拖动功能
+            self._center_window(self.root)  # 窗口居中
         elif self.clock_state == 2:
             self.start_button.pack_forget()
             self.pause_button.pack_forget()
@@ -103,7 +103,9 @@ class PomodoroTimer:
             self.end_time = time.time() + self.remaining_time
             self.is_running = True
             self._update_timer()
+            self.root.overrideredirect(False)
             self._work_state_display_adjust(2)
+            self.root.overrideredirect(True)
 
     def _popup_message(self, title, message) -> None:
         """弹窗消息"""
@@ -364,15 +366,16 @@ class PomodoroTimer:
             ctypes.sizeof(ctypes.c_int(2)),  # 指针引用的大小
         )
 
-    def _center_window(self, window) -> None:
+    def _center_window(self, window: tk.Tk) -> None:
         window.update_idletasks()
         width = window.winfo_width()
         height = window.winfo_height()
         x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         window.geometry(f"{width}x{height}+{x}+{y}")
+        window.deiconify()
 
-    def _bottom_right_window(self, window) -> None:
+    def _bottom_right_window(self, window: tk.Tk) -> None:
         window.update_idletasks()
         monitor_info = GetMonitorInfo(MonitorFromPoint((0, 0)))
         monitor_area = monitor_info.get("Monitor")
